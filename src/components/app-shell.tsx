@@ -4,78 +4,266 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
+  Cpu,
   Database,
+  Globe,
   Inbox,
+  LogIn,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plug,
   Settings,
-  ShieldCheck,
+  Sparkles,
   Target,
-  type LucideIcon
+  User,
+  type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { productNavigation, type ProductNavigationItem } from "@/lib/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useI18n } from "@/i18n/context";
+import type { Locale } from "@/i18n/translations";
+import { cn } from "@/lib/utils";
 
-const navIcons: Record<ProductNavigationItem["icon"], LucideIcon> = {
+const iconMap: Record<string, LucideIcon> = {
   inbox: Inbox,
   target: Target,
   review: CheckCircle2,
   connector: Plug,
-  settings: Settings
+  settings: Settings,
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { t, locale, setLocale } = useI18n();
+  const [collapsed, setCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; displayName: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setCurrentUser(data?.user ?? null));
+  }, []);
+
+  function logout() {
+    fetch("/api/auth/logout", { method: "POST" }).then(() => {
+      setCurrentUser(null);
+      window.location.href = "/login";
+    });
+  }
+
+  const toggleCollapsed = useCallback(() => setCollapsed((prev) => !prev), []);
+
+  const navItems = [
+    { href: "/resources", icon: "inbox", label: t("nav.resources"), desc: t("nav.resourcesDesc") },
+    { href: "/goals", icon: "target", label: t("nav.goals"), desc: t("nav.goalsDesc") },
+    { href: "/reviews", icon: "review", label: t("nav.reviews"), desc: t("nav.reviewsDesc") },
+    { href: "/connectors", icon: "connector", label: t("nav.connectors"), desc: t("nav.connectorsDesc") },
+    { href: "/settings", icon: "settings", label: t("nav.settings"), desc: t("nav.settingsDesc") },
+  ];
+
+  const localeLabel: Record<Locale, string> = { zh: "中文", en: "English" };
 
   return (
-    <div className="product-shell">
-      <aside className="app-sidebar" aria-label="产品导航">
-        <Link className="brand-lockup" href="/resources" aria-label="资源激活系统">
-          <span className="brand-mark">RA</span>
-          <span>
-            <strong>资源激活系统</strong>
-            <small>Mock AI Workspace</small>
-          </span>
-        </Link>
+    <div className="flex min-h-svh">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 z-20 flex flex-col border-r bg-sidebar transition-all duration-300",
+          collapsed ? "w-[60px]" : "w-60",
+        )}
+      >
+        {/* Brand */}
+        <div className={cn("flex items-center gap-3 px-3 py-4", collapsed && "justify-center px-2")}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <p className="text-sm font-semibold leading-tight text-sidebar-foreground">
+                {t("app.brand")}
+              </p>
+              <p className="text-[10px] text-sidebar-foreground/50">Personal Resource Activation</p>
+            </div>
+          )}
+        </div>
 
-        <nav className="nav-stack">
-          {productNavigation.map((item) => {
-            const Icon = navIcons[item.icon];
+        {/* Nav */}
+        <nav className="flex-1 space-y-1 px-2 overflow-auto">
+          {navItems.map((item) => {
+            const Icon = iconMap[item.icon];
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-            return (
-              <Link key={item.href} className={active ? "nav-item active" : "nav-item"} href={item.href}>
-                <Icon size={18} aria-hidden />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.description}</small>
-                </span>
+            const link = (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  collapsed && "justify-center px-2",
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed && (
+                  <div className="overflow-hidden">
+                    <p className="truncate">{item.label}</p>
+                    <p className="truncate text-[11px] opacity-60">{item.desc}</p>
+                  </div>
+                )}
               </Link>
             );
+
+            if (collapsed) {
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right" className="flex flex-col">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-xs opacity-70">{item.desc}</span>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return link;
           })}
         </nav>
+
+        {/* Sidebar Footer */}
+        <div className={cn("p-3", collapsed && "px-2")}>
+          <Separator className="mb-3" />
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-2 text-[10px] text-sidebar-foreground/40">
+              <Cpu className="h-3.5 w-3.5" />
+              <Database className="h-3.5 w-3.5" />
+            </div>
+          ) : (
+            <div className="space-y-1.5 px-1 text-xs text-sidebar-foreground/55">
+              <div className="flex items-center gap-2">
+                <Cpu className="h-3 w-3" />
+                <span>{t("app.mockAI")}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Database className="h-3 w-3" />
+                <span>{t("app.localData")}</span>
+              </div>
+              <p className="mt-1 text-[10px] text-sidebar-foreground/35">{t("app.scopeNote")}</p>
+            </div>
+          )}
+        </div>
       </aside>
 
-      <div className="shell-main">
-        <header className="shell-topbar">
-          <div>
-            <p className="eyebrow">Personal Resource Activation</p>
-            <h1>把收藏资源转成站内行动闭环</h1>
+      {/* Main */}
+      <main
+        className={cn(
+          "flex min-h-svh flex-1 flex-col transition-[margin] duration-300",
+          collapsed ? "ml-[60px]" : "ml-60",
+        )}
+      >
+        {/* Top bar */}
+        <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={toggleCollapsed}
+            title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </Button>
+
+          <div className="flex-1 flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Personal Resource Activation
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {t("app.subtitle")}
+            </span>
           </div>
-          <div className="runtime-strip" aria-label="运行状态">
-            <span>
-              <ShieldCheck size={16} aria-hidden />
-              Mock AI
-            </span>
-            <span>
-              <Database size={16} aria-hidden />
-              站内数据
-            </span>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="hidden sm:flex gap-1 text-[10px]">
+              <Cpu className="h-3 w-3" />
+              {t("app.mockAI")}
+            </Badge>
+            <Badge variant="secondary" className="hidden sm:flex gap-1 text-[10px]">
+              <Database className="h-3 w-3" />
+              {t("app.localData")}
+            </Badge>
+
+            {/* Language Switcher */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Globe className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(["zh", "en"] as Locale[]).map((l) => (
+                  <DropdownMenuItem
+                    key={l}
+                    onClick={() => setLocale(l)}
+                    className={cn(locale === l && "bg-accent")}
+                  >
+                    {localeLabel[l]}
+                    {locale === l && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <ThemeToggle />
+
+            {/* User Menu */}
+            {currentUser ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                    <User className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{currentUser.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                  </div>
+                  <DropdownMenuItem onClick={logout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    登出
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                <Link href="/login">
+                  <LogIn className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </div>
         </header>
 
-        <main className="content-area">{children}</main>
-      </div>
+        <div className="flex-1 overflow-auto p-6">{children}</div>
+      </main>
     </div>
   );
 }

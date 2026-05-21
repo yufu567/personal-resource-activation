@@ -6,17 +6,34 @@ import {
   Archive,
   CheckCircle2,
   ExternalLink,
+  FileText,
   Folder,
-  ListFilter,
+  Layers,
+  Lightbulb,
   Plus,
   RefreshCw,
   Sparkles,
-  Target
+  Target,
+  TrendingUp,
 } from "lucide-react";
 
-import { PageHeader } from "@/components/page-header";
-import type { ResourceActivationSnapshot } from "@/server/resource-activation-service";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/i18n/context";
 import type { Resource, ResourceSource } from "@/core/types";
+import type { ResourceActivationSnapshot } from "@/server/resource-activation-service";
 import { buildResourceRows, sourceLabels, type ResourceRow } from "./resource-view-model";
 
 type ResourceWorkspaceProps = {
@@ -24,9 +41,20 @@ type ResourceWorkspaceProps = {
   initialSelectedResourceId?: string;
 };
 
-const sourceFilters: Array<ResourceSource | "all"> = ["all", "github", "x", "link", "upload", "drive"];
+const sourceFilters: Array<ResourceSource | "all"> = [
+  "all",
+  "github",
+  "x",
+  "link",
+  "upload",
+  "drive",
+];
 
-export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }: ResourceWorkspaceProps) {
+export function ResourceWorkspace({
+  initialSnapshot,
+  initialSelectedResourceId,
+}: ResourceWorkspaceProps) {
+  const { t } = useI18n();
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [selectedSource, setSelectedSource] = useState<ResourceSource | "all">("all");
   const [selectedResourceId, setSelectedResourceId] = useState(initialSelectedResourceId);
@@ -34,9 +62,9 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
     source: "link" as ResourceSource,
     title: "",
     url: "",
-    content: ""
+    content: "",
   });
-  const [status, setStatus] = useState("Mock AI 已启用，所有动作都限制在站内。");
+  const [status, setStatus] = useState(t("common.status"));
   const [isPending, startTransition] = useTransition();
 
   const rows = useMemo(() => buildResourceRows(snapshot), [snapshot]);
@@ -48,7 +76,7 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
     startTransition(async () => {
       const response = await fetch("/api/resources");
       setSnapshot(await response.json());
-      setStatus("已刷新资源收件箱。");
+      setStatus(t("common.refreshed"));
     });
   }
 
@@ -58,13 +86,13 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
       const response = await fetch("/api/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify(form),
       });
       const payload = await response.json();
       setSnapshot(payload.snapshot);
       setSelectedResourceId(payload.resource.id);
       setForm({ source: "link", title: "", url: "", content: "" });
-      setStatus(`已添加并分析资源：${payload.resource.title}`);
+      setStatus(t("common.added") + payload.resource.title);
     });
   }
 
@@ -75,12 +103,12 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resourceIds: [resource.id],
-          intent: `把「${resource.title}」转成一个站内可执行目标`
-        })
+          intent: `把「${resource.title}」转成一个站内可执行目标`,
+        }),
       });
       const payload = await response.json();
       setSnapshot(payload.snapshot);
-      setStatus(`已创建目标：${payload.goal.title}`);
+      setStatus(t("common.goalCreated") + payload.goal.title);
     });
   }
 
@@ -93,122 +121,170 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
           resourceId: resource.id,
           outcome: "learned",
           actualValue: "medium",
-          reflection: `已完成对「${resource.title}」的站内复盘。`
-        })
+          reflection: `已完成对「${resource.title}」的站内复盘。`,
+        }),
       });
       const payload = await response.json();
       setSnapshot(payload.snapshot);
-      setStatus(`已记录复盘：${resource.title}`);
+      setStatus(t("common.reviewed") + resource.title);
     });
   }
 
+  const metrics = [
+    { label: t("resources.metrics.total"), value: snapshot.metrics.totalResources, icon: Layers },
+    { label: t("resources.metrics.analyzed"), value: snapshot.metrics.analyzedResources, icon: Sparkles },
+    { label: t("resources.metrics.activeGoals"), value: snapshot.metrics.activeGoals, icon: Target },
+    { label: t("resources.metrics.avgScore"), value: snapshot.metrics.averageValueScore, icon: TrendingUp },
+  ];
+
   return (
-    <div className="resource-workspace">
-      <PageHeader
-        eyebrow="资源收件箱"
-        title="优先处理最可能变成行动的资源"
-        description="保留现有 Mock AI / API 行为，资源会在添加后自动分析，并可继续转成目标或复盘。"
-        actions={
-          <button className="icon-button" type="button" onClick={refresh} disabled={isPending}>
-            <RefreshCw size={16} aria-hidden />
-            刷新
-          </button>
-        }
-      />
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+            {t("resources.eyebrow")}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("resources.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("resources.description")}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refresh} disabled={isPending}>
+          <RefreshCw className="h-4 w-4 mr-1.5" />
+          {t("resources.refresh")}
+        </Button>
+      </div>
 
-      <section className="metrics-grid" aria-label="资源激活指标">
-        <Metric label="资源总数" value={snapshot.metrics.totalResources} />
-        <Metric label="已分析" value={snapshot.metrics.analyzedResources} />
-        <Metric label="激活目标" value={snapshot.metrics.activeGoals} />
-        <Metric label="平均价值分" value={snapshot.metrics.averageValueScore} />
-      </section>
+      {/* Metrics */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <Card key={metric.label}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{metric.label}</p>
+                  <p className="text-xl font-semibold">{metric.value}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
-      <div className="resource-layout">
-        <section className="workspace-panel add-resource-panel" aria-labelledby="add-resource-title">
-          <div className="panel-heading">
-            <Plus size={18} aria-hidden />
-            <h3 id="add-resource-title">添加资源</h3>
-          </div>
-
-          <form className="resource-form" onSubmit={addResource}>
-            <label>
-              来源
-              <select
-                value={form.source}
-                onChange={(event) => setForm((current) => ({ ...current, source: event.target.value as ResourceSource }))}
-              >
-                <option value="link">链接导入</option>
-                <option value="github">GitHub Star</option>
-                <option value="x">X 收藏</option>
-                <option value="upload">上传文件</option>
-                <option value="drive">网盘文件</option>
-              </select>
-            </label>
-            <label>
-              标题
-              <input
-                value={form.title}
-                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="例如：AI 工作流实践"
-                required
-              />
-            </label>
-            <label>
-              链接
-              <input
-                value={form.url}
-                onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))}
-                placeholder="https://example.com"
-              />
-            </label>
-            <label>
-              内容线索
-              <textarea
-                value={form.content}
-                onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-                placeholder="粘贴摘要、备注或你记得的上下文"
-                rows={5}
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={isPending}>
-              <Sparkles size={16} aria-hidden />
-              添加并分析
-            </button>
-          </form>
-        </section>
-
-        <section className="workspace-panel inbox-panel" aria-labelledby="resource-list-title">
-          <div className="panel-heading toolbar-heading">
-            <span>
-              <ListFilter size={18} aria-hidden />
-              <h3 id="resource-list-title">资源流</h3>
-            </span>
-            <div className="segmented" aria-label="资源来源筛选">
-              {sourceFilters.map((source) => (
-                <button
-                  key={source}
-                  type="button"
-                  className={selectedSource === source ? "active" : ""}
-                  onClick={() => setSelectedSource(source)}
+      {/* Three-column Layout */}
+      <div className="grid items-start gap-4 lg:grid-cols-[300px_1fr_340px] xl:grid-cols-[320px_1fr_360px]">
+        {/* Left: Add Resource Form */}
+        <Card className="lg:sticky lg:top-20">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Plus className="h-4 w-4" />
+              {t("resources.addResource")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={addResource} className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("resources.source")}</Label>
+                <Select
+                  value={form.source}
+                  onValueChange={(v) =>
+                    setForm((prev) => ({ ...prev, source: v as ResourceSource }))
+                  }
                 >
-                  {source === "all" ? "全部" : sourceLabels[source]}
-                </button>
-              ))}
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="link">{sourceLabels.link}</SelectItem>
+                    <SelectItem value="github">{sourceLabels.github}</SelectItem>
+                    <SelectItem value="x">{sourceLabels.x}</SelectItem>
+                    <SelectItem value="upload">{sourceLabels.upload}</SelectItem>
+                    <SelectItem value="drive">{sourceLabels.drive}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="title">{t("resources.title_field")}</Label>
+                <Input
+                  id="title"
+                  value={form.title}
+                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder={t("resources.titlePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="url">{t("resources.url")}</Label>
+                <Input
+                  id="url"
+                  value={form.url}
+                  onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
+                  placeholder={t("resources.urlPlaceholder")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="content">{t("resources.content")}</Label>
+                <Textarea
+                  id="content"
+                  value={form.content}
+                  onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
+                  placeholder={t("resources.contentPlaceholder")}
+                  rows={4}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isPending}>
+                <Sparkles className="h-4 w-4 mr-1.5" />
+                {t("resources.addButton")}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Center: Resource List */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4" />
+                {t("resources.resourceStream")}
+              </CardTitle>
+              <div className="flex flex-wrap gap-1.5">
+                {sourceFilters.map((source) => (
+                  <Badge
+                    key={source}
+                    variant={selectedSource === source ? "default" : "outline"}
+                    className="cursor-pointer transition-colors"
+                    onClick={() => setSelectedSource(source)}
+                  >
+                    {source === "all" ? t("resources.all") : sourceLabels[source]}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
+          </CardHeader>
+          <CardContent className="max-h-[calc(100vh-20rem)] space-y-2 overflow-auto">
+            {filteredRows.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-12 text-center">
+                <Archive className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">{t("resources.noMatch")}</p>
+              </div>
+            ) : (
+              filteredRows.map((row) => (
+                <ResourceListRow
+                  key={row.id}
+                  row={row}
+                  selected={selectedRow?.id === row.id}
+                  onSelect={() => setSelectedResourceId(row.id)}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
 
-          <div className="resource-list">
-            {filteredRows.map((row) => (
-              <ResourceListRow
-                key={row.id}
-                row={row}
-                selected={selectedRow?.id === row.id}
-                onSelect={() => setSelectedResourceId(row.id)}
-              />
-            ))}
-          </div>
-        </section>
-
+        {/* Right: Resource Detail */}
         <ResourceDetailPanel
           row={selectedRow}
           disabled={isPending}
@@ -217,45 +293,59 @@ export function ResourceWorkspace({ initialSnapshot, initialSelectedResourceId }
         />
       </div>
 
-      <p className="status-line" role="status">
-        {isPending ? "处理中..." : status}
-      </p>
+      {/* Status Bar */}
+      <div className="sticky bottom-4 flex justify-center">
+        <Badge variant="secondary" className="px-4 py-2 text-xs shadow-lg">
+          {isPending ? t("common.loading") : status}
+        </Badge>
+      </div>
     </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <article className="metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
   );
 }
 
 function ResourceListRow({
   row,
   selected,
-  onSelect
+  onSelect,
 }: {
   row: ResourceRow;
   selected: boolean;
   onSelect: () => void;
 }) {
   return (
-    <article className={selected ? "resource-row active" : "resource-row"}>
-      <Link href={row.href} onClick={onSelect}>
-        <div className="resource-row-main">
-          <span className={`source-pill source-${row.source}`}>{row.sourceLabel}</span>
-          <h4>{row.title}</h4>
-          <p>{row.summary}</p>
+    <Link href={row.href} onClick={onSelect}>
+      <div
+        className={`group rounded-lg border p-3 transition-colors hover:bg-accent ${
+          selected ? "border-primary/50 bg-accent" : "border-transparent"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex items-center gap-2">
+              <Badge variant="secondary" className="text-[10px]">
+                {row.sourceLabel}
+              </Badge>
+              <span className="text-xs text-muted-foreground">{row.statusLabel}</span>
+            </div>
+            <h4 className="mb-1 truncate text-sm font-medium">{row.title}</h4>
+            <p className="line-clamp-2 text-xs text-muted-foreground">{row.summary}</p>
+            {row.tags.length > 0 && row.tags[0] !== "未标记" && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {row.tags.slice(0, 3).map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-[10px]">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-lg font-semibold">{row.score}</span>
+            <span className="text-[10px] text-muted-foreground">{row.recommendationLabel}</span>
+          </div>
         </div>
-        <div className="resource-row-meta">
-          <strong>{row.score}</strong>
-          <span>{row.recommendationLabel}</span>
-        </div>
-      </Link>
-    </article>
+      </div>
+    </Link>
   );
 }
 
@@ -263,92 +353,124 @@ function ResourceDetailPanel({
   row,
   disabled,
   onCreateGoal,
-  onReview
+  onReview,
 }: {
   row?: ResourceRow;
   disabled: boolean;
   onCreateGoal: (resource: Resource) => void;
   onReview: (resource: Resource) => void;
 }) {
+  const { t } = useI18n();
+
   if (!row) {
     return (
-      <aside className="workspace-panel detail-panel">
-        <div className="empty-state">
-          <Archive size={24} aria-hidden />
-          <h3>还没有资源</h3>
-          <p>添加第一个资源后，Mock AI 会在这里展示分析结果。</p>
-        </div>
-      </aside>
+      <Card className="lg:sticky lg:top-20">
+        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+          <Archive className="h-10 w-10 text-muted-foreground/30" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium">{t("resources.noResources")}</h3>
+            <p className="text-sm text-muted-foreground">{t("resources.noResourcesDesc")}</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <aside className="workspace-panel detail-panel" aria-labelledby="resource-detail-title">
-      <div className="detail-kicker">
-        <span className={`source-pill source-${row.source}`}>{row.sourceLabel}</span>
-        <span>{row.statusLabel}</span>
-      </div>
-      <h3 id="resource-detail-title">{row.title}</h3>
-      <p className="detail-summary">{row.summary}</p>
+    <Card className="lg:sticky lg:top-20">
+      <CardHeader className="pb-3">
+        <div className="mb-3 flex items-center gap-2">
+          <Badge variant="secondary" className="text-[10px]">
+            {row.sourceLabel}
+          </Badge>
+          <span className="text-xs text-muted-foreground">{row.statusLabel}</span>
+        </div>
+        <CardTitle className="text-lg leading-snug">{row.title}</CardTitle>
+        <p className="text-sm text-muted-foreground">{row.summary}</p>
+      </CardHeader>
 
-      <div className="score-strip">
-        <span>价值分</span>
-        <strong>{row.score}</strong>
-        <span>{row.recommendationLabel}</span>
-      </div>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-4 rounded-lg bg-muted/50 p-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background text-lg font-semibold">
+            {row.score}
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">{t("resources.valueScore")}</p>
+            <Badge variant="outline" className="text-[10px]">
+              {row.recommendationLabel}
+            </Badge>
+          </div>
+        </div>
 
-      <div className="tag-row">
-        {row.tags.map((tag) => (
-          <span key={tag}>{tag}</span>
-        ))}
-      </div>
-
-      {row.collectionPath ? (
-        <p className="meta-line">
-          <Folder size={15} aria-hidden />
-          {row.collectionPath}
-        </p>
-      ) : null}
-
-      {row.analysis?.activationOpportunities.length ? (
-        <section className="detail-section">
-          <h4>激活机会</h4>
-          {row.analysis.activationOpportunities.map((opportunity) => (
-            <div className="opportunity-item" key={`${opportunity.mode}-${opportunity.title}`}>
-              <strong>{opportunity.title}</strong>
-              <p>{opportunity.action}</p>
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      {row.analysis?.gaps.length ? (
-        <section className="detail-section">
-          <h4>缺口</h4>
-          <ul className="plain-list">
-            {row.analysis.gaps.map((gap) => (
-              <li key={gap}>{gap}</li>
+        {row.tags.length > 0 && row.tags[0] !== "未标记" && (
+          <div className="flex flex-wrap gap-1.5">
+            {row.tags.map((tag) => (
+              <Badge key={tag} variant="secondary">{tag}</Badge>
             ))}
-          </ul>
-        </section>
-      ) : null}
+          </div>
+        )}
 
-      <div className="button-row">
-        {row.url ? (
-          <a className="secondary-button" href={row.url} target="_blank" rel="noreferrer">
-            <ExternalLink size={15} aria-hidden />
-            原链接
-          </a>
+        {row.collectionPath && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Folder className="h-3.5 w-3.5" />
+            {row.collectionPath}
+          </p>
+        )}
+
+        {row.analysis?.activationOpportunities.length ? (
+          <div className="space-y-2">
+            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Lightbulb className="h-3.5 w-3.5" />
+              {t("resources.activationOpportunity")}
+            </h4>
+            <div className="space-y-2">
+              {row.analysis.activationOpportunities.map((op) => (
+                <div key={`${op.mode}-${op.title}`} className="rounded-lg border p-2.5">
+                  <p className="text-sm font-medium">{op.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{op.action}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : null}
-        <button className="secondary-button" type="button" onClick={() => onCreateGoal(row.resource)} disabled={disabled}>
-          <Target size={15} aria-hidden />
-          转目标
-        </button>
-        <button className="secondary-button" type="button" onClick={() => onReview(row.resource)} disabled={disabled}>
-          <CheckCircle2 size={15} aria-hidden />
-          复盘
-        </button>
-      </div>
-    </aside>
+
+        {row.analysis?.gaps.length ? (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("resources.gaps")}
+            </h4>
+            <ul className="space-y-1.5">
+              {row.analysis.gaps.map((gap) => (
+                <li key={gap} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="h-1 w-1 rounded-full bg-amber-500" />
+                  {gap}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <Separator />
+
+        <div className="flex flex-wrap gap-2">
+          {row.url && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={row.url} target="_blank" rel="noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                {t("resources.sourceLink")}
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => onCreateGoal(row.resource)} disabled={disabled}>
+            <Target className="h-3.5 w-3.5 mr-1" />
+            {t("resources.toGoal")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onReview(row.resource)} disabled={disabled}>
+            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+            {t("resources.review")}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

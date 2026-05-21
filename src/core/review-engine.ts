@@ -1,6 +1,6 @@
 import type { AIProvider } from "@/ai/types";
 import type { ResourceActualValue, ReviewLog, ReviewSuggestion } from "./types";
-import { InMemoryResourceStore } from "./resource-store";
+import type { Store } from "./store";
 
 export type RecordReviewInput = Omit<
   ReviewLog,
@@ -10,31 +10,31 @@ export type RecordReviewInput = Omit<
 
 export class ReviewEngine {
   constructor(
-    private readonly store: InMemoryResourceStore,
-    private readonly aiProvider?: AIProvider
+    private readonly store: Store,
+    private readonly aiProvider?: AIProvider,
   ) {}
 
-  recordReview(input: RecordReviewInput): ReviewLog {
-    const analysis = this.store.getAnalysis(input.userId, input.resourceId);
+  async recordReview(input: RecordReviewInput): Promise<ReviewLog> {
+    const analysis = await this.store.getAnalysis(input.userId, input.resourceId);
     const advice = createReviewAdvice(input.actualValue, analysis?.valueScore);
-    const review = this.store.saveReview({
+    const review = await this.store.saveReview({
       ...input,
       reviewSuggestions: input.reviewSuggestions ?? advice.reviewSuggestions,
       suggestedNextStep: input.suggestedNextStep ?? advice.suggestedNextStep,
-      valueDelta: input.valueDelta ?? advice.valueDelta
+      valueDelta: input.valueDelta ?? advice.valueDelta,
     });
-    this.store.updateResourceStatus(input.userId, input.resourceId, "reviewed");
-    this.store.updateResourceActualValue(input.userId, input.resourceId, input.actualValue);
-    this.store.updateAnalysisReviewOutcome(input.userId, input.resourceId, {
+    await this.store.updateResourceStatus(input.userId, input.resourceId, "reviewed");
+    await this.store.updateResourceActualValue(input.userId, input.resourceId, input.actualValue);
+    await this.store.updateAnalysisReviewOutcome(input.userId, input.resourceId, {
       actualValue: input.actualValue,
-      reviewSuggestions: review.reviewSuggestions
+      reviewSuggestions: review.reviewSuggestions,
     });
-    this.store.addAuditEvent({
+    await this.store.addAuditEvent({
       userId: input.userId,
       resourceId: input.resourceId,
       type: "review.completed",
       message: `Review recorded with actual value "${input.actualValue}".`,
-      metadata: { outcome: input.outcome, goalId: input.goalId, valueDelta: review.valueDelta }
+      metadata: { outcome: input.outcome, goalId: input.goalId, valueDelta: review.valueDelta },
     });
     return review;
   }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(F:/node/node *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s http://localhost:3000/resources)"
+    ]
+  }
+}

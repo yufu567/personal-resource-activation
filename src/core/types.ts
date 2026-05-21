@@ -2,14 +2,22 @@ export type ResourceSource = "github" | "x" | "upload" | "link" | "drive";
 export type ResourceStatus = "new" | "analyzed" | "reviewed" | "archived";
 export type ShareVisibility = "private" | "summary-card";
 export type ResourceActualValue = "high" | "medium" | "low";
-export type AnalysisCategory =
-  | "ai-workflow"
-  | "product-strategy"
-  | "automation"
-  | "research"
-  | "reference"
-  | "low-signal"
+export type ResourceMedium = "text" | "image" | "video" | "audio" | "mixed";
+
+// Functional domain — what the resource is about
+export type ResourceDomain =
+  | "engineering"
+  | "product"
+  | "finance"
+  | "health"
+  | "science"
+  | "design"
   | "general";
+
+// Activation potential — how likely this resource can be activated
+export type ActivationPotential = "seed" | "fuel" | "archive";
+
+export type AnalysisCategory = ResourceDomain | "ai-workflow" | "product-strategy" | "automation" | "research" | "reference" | "low-signal";
 
 export interface Resource {
   id: string;
@@ -21,6 +29,12 @@ export interface Resource {
   status: ResourceStatus;
   shareVisibility: ShareVisibility;
   actualValue?: ResourceActualValue;
+  /** 物理形态 — 由系统自动推断 */
+  medium?: ResourceMedium;
+  /** 功能领域 — AI 分析后确定 */
+  domain?: ResourceDomain;
+  /** 激活潜力 — AI 评估后确定 */
+  potential?: ActivationPotential;
   collectionPath?: string;
   tags: string[];
   raw?: unknown;
