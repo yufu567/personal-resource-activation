@@ -119,34 +119,36 @@ describe("personal resource activation", () => {
       selectedRootName: "AI Resource Inbox"
     });
 
-    const imported = await connector.sync("user-1", [
-      { id: "folder-root", name: "AI Resource Inbox", mimeType: "folder" },
-      {
-        id: "file-a",
-        parentId: "folder-root",
-        name: "agent report.pdf",
-        mimeType: "application/pdf",
-        content: "Report about agent product patterns."
-      },
-      { id: "folder-child", parentId: "folder-root", name: "research", mimeType: "folder" },
-      {
-        id: "file-b",
-        parentId: "folder-child",
-        name: "market notes.md",
-        mimeType: "text/markdown",
-        content: "Market notes for resource activation tools."
-      },
-      {
-        id: "file-outside",
-        parentId: "unselected-folder",
-        name: "private finance.xlsx",
-        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        content: "Outside the selected folder."
-      }
-    ]);
+    const imported = await connector.sync("user-1", {
+      items: [
+        { id: "folder-root", name: "AI Resource Inbox", mimeType: "folder" },
+        {
+          id: "file-a",
+          parentId: "folder-root",
+          name: "agent report.pdf",
+          mimeType: "application/pdf",
+          content: "Report about agent product patterns."
+        },
+        { id: "folder-child", parentId: "folder-root", name: "research", mimeType: "folder" },
+        {
+          id: "file-b",
+          parentId: "folder-child",
+          name: "market notes.md",
+          mimeType: "text/markdown",
+          content: "Market notes for resource activation tools."
+        },
+        {
+          id: "file-outside",
+          parentId: "unselected-folder",
+          name: "private finance.xlsx",
+          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          content: "Outside the selected folder."
+        }
+      ]
+    });
 
-    expect(imported.map((resource) => resource.title)).toEqual(["agent report.pdf", "market notes.md"]);
-    expect(imported[1]?.collectionPath).toBe("AI Resource Inbox/research");
+    expect(imported.resources.map((resource) => resource.title)).toEqual(["agent report.pdf", "market notes.md"]);
+    expect(imported.resources[1]?.collectionPath).toBe("AI Resource Inbox/research");
     expect(store.listResources("user-1")).toHaveLength(2);
   });
 
