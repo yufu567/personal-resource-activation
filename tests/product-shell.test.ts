@@ -62,6 +62,7 @@ describe("resource view model", () => {
           userId: "demo-user",
           resourceId: "res-1",
           summary: "High-value framework for activation workflows.",
+          category: "ai-workflow",
           tags: ["ai", "workflow"],
           valueScore: 86,
           recommendation: "activate",
@@ -74,6 +75,13 @@ describe("resource view model", () => {
             }
           ],
           gaps: ["Need implementation scope"],
+          confidence: 0.82,
+          nextBestAction: {
+            title: "Activate as internal goal",
+            description: "Turn this resource into a station-internal goal.",
+            permissionScope: "internal"
+          },
+          reviewSuggestions: [],
           reasoning: "Relevant to product activation.",
           createdAt: "2026-01-01T00:01:00.000Z"
         }
