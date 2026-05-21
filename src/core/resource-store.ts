@@ -4,6 +4,7 @@ import type {
   AuditEvent,
   CreateResourceInput,
   Resource,
+  ResourceActualValue,
   ResourceStatus,
   ReviewLog
 } from "./types";
@@ -71,10 +72,21 @@ export class InMemoryResourceStore {
     return updated;
   }
 
-  saveAnalysis(record: Omit<AnalysisRecord, "id" | "createdAt">): AnalysisRecord {
+  updateResourceActualValue(userId: string, resourceId: string, actualValue: ResourceActualValue): Resource {
+    const resource = this.requireResource(userId, resourceId);
+    const updated = { ...resource, actualValue, updatedAt: now() };
+    this.resources.set(resourceId, updated);
+    return updated;
+  }
+
+  saveAnalysis(
+    record: Omit<AnalysisRecord, "id" | "createdAt" | "reviewSuggestions"> &
+      Partial<Pick<AnalysisRecord, "reviewSuggestions">>
+  ): AnalysisRecord {
     this.requireResource(record.userId, record.resourceId);
     const analysis: AnalysisRecord = {
       ...record,
+      reviewSuggestions: record.reviewSuggestions ?? [],
       id: this.nextId("analysis"),
       createdAt: now()
     };
@@ -91,6 +103,18 @@ export class InMemoryResourceStore {
     return [...this.analyses.values()].filter((analysis) => analysis.userId === userId);
   }
 
+  updateAnalysisReviewOutcome(
+    userId: string,
+    resourceId: string,
+    update: Pick<AnalysisRecord, "actualValue" | "reviewSuggestions">
+  ): AnalysisRecord | undefined {
+    const analysis = this.getAnalysis(userId, resourceId);
+    if (!analysis) return undefined;
+    const updated = { ...analysis, ...update };
+    this.analyses.set(resourceId, updated);
+    return updated;
+  }
+
   saveGoal(goal: Omit<ActivationGoal, "id" | "createdAt">): ActivationGoal {
     const saved: ActivationGoal = {
       ...goal,
@@ -101,12 +125,23 @@ export class InMemoryResourceStore {
     return saved;
   }
 
-  saveReview(review: Omit<ReviewLog, "id" | "createdAt" | "lifecycleStage">): ReviewLog {
+  getGoal(userId: string, goalId: string): ActivationGoal | undefined {
+    const goal = this.goals.get(goalId);
+    return goal?.userId === userId ? goal : undefined;
+  }
+
+  saveReview(
+    review: Omit<ReviewLog, "id" | "createdAt" | "lifecycleStage" | "reviewSuggestions" | "suggestedNextStep" | "valueDelta"> &
+      Partial<Pick<ReviewLog, "reviewSuggestions" | "suggestedNextStep" | "valueDelta">>
+  ): ReviewLog {
     this.requireResource(review.userId, review.resourceId);
     const saved: ReviewLog = {
       ...review,
       id: this.nextId("review"),
       lifecycleStage: "reviewed",
+      reviewSuggestions: review.reviewSuggestions ?? [],
+      suggestedNextStep: review.suggestedNextStep ?? "Review captured; keep the next action internal.",
+      valueDelta: review.valueDelta ?? 0,
       createdAt: now()
     };
     this.reviews.set(saved.id, saved);

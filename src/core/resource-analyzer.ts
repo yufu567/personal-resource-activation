@@ -10,11 +10,16 @@ export class ResourceAnalyzer {
 
   async analyze(userId: string, resourceId: string): Promise<AnalysisRecord> {
     const resource = this.store.requireResource(userId, resourceId);
-    const generated = await this.aiProvider.analyzeResource({ resource });
+    const basicAnalysis = await this.aiProvider.analyzeResource({ resource });
+    const valueAssessment = await this.aiProvider.evaluateResourceValue({
+      resource,
+      basicAnalysis
+    });
     const analysis = this.store.saveAnalysis({
       userId,
       resourceId,
-      ...generated
+      ...basicAnalysis,
+      ...valueAssessment
     });
     this.store.updateResourceStatus(userId, resourceId, "analyzed");
     this.store.addAuditEvent({

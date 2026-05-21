@@ -1,6 +1,15 @@
 export type ResourceSource = "github" | "x" | "upload" | "link" | "drive";
 export type ResourceStatus = "new" | "analyzed" | "reviewed" | "archived";
 export type ShareVisibility = "private" | "summary-card";
+export type ResourceActualValue = "high" | "medium" | "low";
+export type AnalysisCategory =
+  | "ai-workflow"
+  | "product-strategy"
+  | "automation"
+  | "research"
+  | "reference"
+  | "low-signal"
+  | "general";
 
 export interface Resource {
   id: string;
@@ -11,6 +20,7 @@ export interface Resource {
   content?: string;
   status: ResourceStatus;
   shareVisibility: ShareVisibility;
+  actualValue?: ResourceActualValue;
   collectionPath?: string;
   tags: string[];
   raw?: unknown;
@@ -36,17 +46,35 @@ export interface ActivationOpportunity {
   confidence: number;
 }
 
+export interface NextBestAction {
+  title: string;
+  description: string;
+  permissionScope: "internal";
+}
+
+export interface ReviewSuggestion {
+  title: string;
+  action: string;
+  priority: "high" | "medium" | "low";
+  permissionScope: "internal";
+}
+
 export interface AnalysisRecord {
   id: string;
   userId: string;
   resourceId: string;
   summary: string;
+  category: AnalysisCategory;
   tags: string[];
   valueScore: number;
   recommendation: "activate" | "review" | "archive";
   activationOpportunities: ActivationOpportunity[];
   gaps: string[];
+  confidence: number;
+  nextBestAction: NextBestAction;
   reasoning: string;
+  actualValue?: ResourceActualValue;
+  reviewSuggestions: ReviewSuggestion[];
   createdAt: string;
 }
 
@@ -59,6 +87,26 @@ export interface ActionTask {
   status: "todo" | "done";
 }
 
+export interface ActivationPhase {
+  id: string;
+  title: string;
+  objective: string;
+  taskIds: string[];
+  checkpoint: string;
+}
+
+export interface ResourceGap {
+  title: string;
+  reason: string;
+  howToFill: string;
+}
+
+export interface SupplementalMaterialSuggestion {
+  title: string;
+  reason: string;
+  sourceHint: ResourceSource | "manual-note";
+}
+
 export interface ActivationGoal {
   id: string;
   userId: string;
@@ -66,9 +114,12 @@ export interface ActivationGoal {
   intent: string;
   resourceIds: string[];
   status: "active" | "completed" | "paused";
+  phases: ActivationPhase[];
   tasks: ActionTask[];
   checkpoints: string[];
   gaps: string[];
+  resourceGaps: ResourceGap[];
+  supplementalMaterials: SupplementalMaterialSuggestion[];
   createdAt: string;
 }
 
@@ -82,6 +133,9 @@ export interface ReviewLog {
   reflection: string;
   outputUrl?: string;
   lifecycleStage: "reviewed";
+  reviewSuggestions: ReviewSuggestion[];
+  suggestedNextStep: string;
+  valueDelta: number;
   createdAt: string;
 }
 
