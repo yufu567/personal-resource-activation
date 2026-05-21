@@ -28,6 +28,28 @@ export interface Resource {
   updatedAt: string;
 }
 
+export type ConnectorCapability =
+  | "manual-import"
+  | "file-upload"
+  | "folder-sync"
+  | "cursor-pagination"
+  | "mock-bookmarks"
+  | "mock-likes";
+
+export interface ConnectorSyncResult {
+  resources: Resource[];
+  lastCursor?: string;
+  nextCursor?: string;
+}
+
+export interface Connector<TInput = unknown> {
+  readonly source: ResourceSource;
+  readonly capabilities: readonly ConnectorCapability[];
+  readonly lastCursor?: string;
+  readonly nextCursor?: string;
+  sync(userId: string, input: TInput): Promise<ConnectorSyncResult>;
+}
+
 export interface CreateResourceInput {
   userId: string;
   source: ResourceSource;
