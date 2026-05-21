@@ -1,0 +1,47 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://resource_activation:resource_activation@postgres:5432/resource_activation}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: resource_activation
+      POSTGRES_USER: resource_activation
+      POSTGRES_PASSWORD: resource_activation
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resource_activation -d resource_activation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
