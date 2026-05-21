@@ -65,11 +65,19 @@ describe("persistence and auth foundation", () => {
       userId: userB,
       resourceId: userBResource.id,
       summary: "Private analysis",
+      category: "general",
       tags: ["private"],
       valueScore: 88,
       recommendation: "activate",
       activationOpportunities: [],
       gaps: [],
+      confidence: 0.81,
+      nextBestAction: {
+        title: "Keep private",
+        description: "Keep this activation path scoped to user B.",
+        permissionScope: "internal"
+      },
+      reviewSuggestions: [],
       reasoning: "Belongs to user B."
     });
     store.saveGoal({
@@ -78,16 +86,22 @@ describe("persistence and auth foundation", () => {
       intent: "Keep user B data isolated.",
       resourceIds: [userBResource.id],
       status: "active",
+      phases: [],
       tasks: [],
       checkpoints: [],
-      gaps: []
+      gaps: [],
+      resourceGaps: [],
+      supplementalMaterials: []
     });
     store.saveReview({
       userId: userB,
       resourceId: userBResource.id,
       outcome: "learned",
       actualValue: "medium",
-      reflection: "Private review."
+      reflection: "Private review.",
+      reviewSuggestions: [],
+      suggestedNextStep: "Keep the next step internal.",
+      valueDelta: 0
     });
 
     expect(store.getResource(userA, userBResource.id)).toBeUndefined();
