@@ -7,6 +7,7 @@ import { createAIProvider } from "@/ai/factory";
 import { createSearXNGProvider } from "@/connectors/search/searxng";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry-helper";
 import { getResourceActivationService } from "@/server/resource-activation-service";
 
 export const dynamic = "force-dynamic";
@@ -66,8 +67,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(output);
   } catch (error) {
+    captureException(error, { userId, path: "/api/research" });
     const message = error instanceof Error ? error.message : "调研失败";
     logger.error({ event: "research_failed", userId, error: message });
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

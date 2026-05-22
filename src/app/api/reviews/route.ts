@@ -5,6 +5,7 @@ import { getCurrentUserId } from "@/auth/session";
 import { getResourceActivationService } from "@/server/resource-activation-service";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry-helper";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +24,20 @@ export async function POST(request: Request) {
   if (limited) return rateLimitResponse();
 
   const started = Date.now();
-  const input = reviewSchema.parse(await request.json());
-  const service = getResourceActivationService();
-  const review = await service.recordReview({
-    ...input,
-    userId,
-    outputUrl: input.outputUrl || undefined,
-  });
-  const snapshot = await service.getSnapshot(userId);
-  logger.info({ method: "POST", path: "/api/reviews", userId, duration: Date.now() - started, outcome: review.outcome, valueDelta: review.valueDelta });
-  return NextResponse.json({ review, snapshot });
+  try {
+    const input = reviewSchema.parse(await request.json());
+    const service = getResourceActivationService();
+    const review = await service.recordReview({
+      ...input,
+      userId,
+      outputUrl: input.outputUrl || undefined,
+    });
+    const snapshot = await service.getSnapshot(userId);
+    logger.info({ method: "POST", path: "/api/reviews", userId, duration: Date.now() - started, outcome: review.outcome, valueDelta: review.valueDelta });
+    return NextResponse.json({ review, snapshot });
+  } catch (error) {
+    captureException(error, { userId, path: "/api/reviews" });
+    logger.error({ method: "POST", path: "/api/reviews", userId, error: String(error) });
+    return NextResponse.json({ error: "复盘失败" }, { status: 500 });
+  }
 }

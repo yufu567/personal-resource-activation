@@ -5,6 +5,7 @@ import { getCurrentUserId } from "@/auth/session";
 import { getResourceActivationService } from "@/server/resource-activation-service";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry-helper";
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +35,21 @@ export async function POST(request: Request) {
   if (limited) return rateLimitResponse();
 
   const started = Date.now();
-  const body = await request.json();
-  const input = resourceSchema.parse(body);
-  const service = getResourceActivationService();
-  const result = await service.addResource({
-    ...input,
-    userId,
-    url: input.url || undefined,
-  });
-  const snapshot = await service.getSnapshot(userId);
-  logger.info({ method: "POST", path: "/api/resources", userId, duration: Date.now() - started, resource: result.resource.title });
-  return NextResponse.json({ ...result, snapshot });
+  try {
+    const body = await request.json();
+    const input = resourceSchema.parse(body);
+    const service = getResourceActivationService();
+    const result = await service.addResource({
+      ...input,
+      userId,
+      url: input.url || undefined,
+    });
+    const snapshot = await service.getSnapshot(userId);
+    logger.info({ method: "POST", path: "/api/resources", userId, duration: Date.now() - started, resource: result.resource.title });
+    return NextResponse.json({ ...result, snapshot });
+  } catch (error) {
+    captureException(error, { userId, path: "/api/resources" });
+    logger.error({ method: "POST", path: "/api/resources", userId, error: String(error) });
+    return NextResponse.json({ error: "添加资源失败" }, { status: 500 });
+  }
 }

@@ -4,6 +4,7 @@ import { validateLogin, seedDemoUser } from "@/auth/store";
 import { setSessionCookie } from "@/auth/session";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry-helper";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       user: { id: user.id, email: user.email, displayName: user.displayName },
     });
   } catch (error) {
+    captureException(error, { path: "/api/auth/login" });
     const message = error instanceof Error ? error.message : "登录失败";
     return NextResponse.json({ error: message }, { status: 400 });
   }

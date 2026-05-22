@@ -57,8 +57,8 @@ function safeLabel(value: string | undefined): string {
   return /^[a-z0-9_-]{1,32}$/i.test(label) ? label : "configured";
 }
 
-export async function GET(request: Request) {
-  const url = request.url;
+export async function GET(request?: Request) {
+  const url = request?.url ?? "";
   // Test Sentry
   if (url.includes("test_sentry")) {
     sendSentryError("Test error from personal-resource-activation");
