@@ -48,11 +48,40 @@ export class ResourceActivationService {
     return this.planner.createGoalFromResources(input);
   }
 
+  private async ensureUserRow(userId: string) {
+    if (process.env.STORE !== "postgres") return;
+    try {
+      const { getDb } = await import("@/db");
+      const { users } = await import("@/db/schema");
+      const db = getDb();
+      await db.insert(users).values({
+        id: userId,
+        email: `${userId}@demo.local`,
+        displayName: userId,
+        authProvider: "demo",
+      }).onConflictDoNothing();
+    } catch {
+      // User may already exist or DB may not be available
+    }
+  }
+
   async seedDemo(userId = "demo-user") {
+    // Check in-memory cache first
     if (this.demoSeededUsers.has(userId)) {
       return this.getSnapshot(userId);
     }
+
+    // Check if user already has resources (e.g. after Docker restart)
+    const existing = await this.store.listResources(userId);
+    if (existing.length > 0) {
+      this.demoSeededUsers.add(userId);
+      return this.getSnapshot(userId);
+    }
+
     this.demoSeededUsers.add(userId);
+
+    // Ensure user row exists in PostgreSQL (for FK constraints)
+    await this.ensureUserRow(userId);
 
     const github = await this.addResource({
       userId,
