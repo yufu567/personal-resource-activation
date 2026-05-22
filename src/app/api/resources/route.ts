@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { getCurrentUserId } from "@/auth/session";
 import { getResourceActivationService } from "@/server/resource-activation-service";
+import { rateLimit, rateLimitResponse } from "@/server/security";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +16,24 @@ const resourceSchema = z.object({
   collectionPath: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await getCurrentUserId();
+  const { limited } = rateLimit(`resources_get:${userId}`);
+  if (limited) return rateLimitResponse();
+
+  const started = Date.now();
   const service = getResourceActivationService();
   const snapshot = await service.seedDemo(userId);
+  logger.info({ method: "GET", path: "/api/resources", userId, duration: Date.now() - started, resources: snapshot.metrics.totalResources });
   return NextResponse.json(snapshot);
 }
 
 export async function POST(request: Request) {
   const userId = await getCurrentUserId();
+  const { limited } = rateLimit(`resources_post:${userId}`);
+  if (limited) return rateLimitResponse();
+
+  const started = Date.now();
   const body = await request.json();
   const input = resourceSchema.parse(body);
   const service = getResourceActivationService();
@@ -32,5 +43,6 @@ export async function POST(request: Request) {
     url: input.url || undefined,
   });
   const snapshot = await service.getSnapshot(userId);
+  logger.info({ method: "POST", path: "/api/resources", userId, duration: Date.now() - started, resource: result.resource.title });
   return NextResponse.json({ ...result, snapshot });
 }
