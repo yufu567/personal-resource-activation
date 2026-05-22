@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createUser } from "@/auth/store";
-import { setSessionCookie } from "@/auth/session";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
 import { captureException } from "@/lib/sentry-helper";
@@ -26,7 +25,7 @@ async function insertUserIntoDB(userId: string, email: string, displayName?: str
 
 const registerSchema = z.object({
   email: z.string().email("请输入有效的邮箱地址"),
-  password: z.string().min(4, "密码至少 4 位"),
+  password: z.string().min(8, "密码至少 8 位，包含字母和数字"),
   displayName: z.string().optional(),
 });
 
@@ -40,7 +39,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const input = registerSchema.parse(body);
     const user = await createUser(input.email, input.password, input.displayName);
-    await setSessionCookie(user.id, user.email);
     logger.info({ event: "register", userId: user.id, duration: Date.now() - started });
 
     // Sync user to PostgreSQL for foreign key integrity

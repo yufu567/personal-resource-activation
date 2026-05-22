@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,21 +51,13 @@ const iconMap: Record<string, LucideIcon> = {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t, locale, setLocale } = useI18n();
+  const { data: session } = useSession();
+  const currentUser = session?.user ?? null;
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; displayName: string } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => setCurrentUser(data?.user ?? null));
-  }, []);
 
   function logout() {
-    fetch("/api/auth/logout", { method: "POST" }).then(() => {
-      setCurrentUser(null);
-      window.location.href = "/login";
-    });
+    signOut({ callbackUrl: "/login" });
   }
 
   const toggleCollapsed = useCallback(() => setCollapsed((prev) => !prev), []);
@@ -266,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{currentUser.displayName}</p>
+                    <p className="text-sm font-medium">{currentUser.name ?? currentUser.email?.split("@")[0]}</p>
                     <p className="text-xs text-muted-foreground">{currentUser.email}</p>
                   </div>
                   <DropdownMenuItem onClick={logout}>
@@ -301,7 +294,7 @@ function MobileSidebar({
   pathname: string;
   onClose: () => void;
   t: (key: string) => string;
-  currentUser: { displayName: string; email: string } | null;
+  currentUser: { name?: string | null; email?: string | null } | null;
   onLogout: () => void;
 }) {
   const navItems = [
@@ -354,7 +347,7 @@ function MobileSidebar({
       <div className="p-3">
         {currentUser ? (
           <div className="space-y-2">
-            <p className="text-xs font-medium">{currentUser.displayName}</p>
+            <p className="text-xs font-medium">{currentUser.name ?? currentUser.email?.split("@")[0]}</p>
             <p className="text-[11px] text-muted-foreground">{currentUser.email}</p>
             <Button variant="outline" size="sm" className="w-full" onClick={onLogout}>
               <LogOut className="h-3.5 w-3.5 mr-1.5" /> 登出

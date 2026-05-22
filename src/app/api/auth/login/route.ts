@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { validateLogin, seedDemoUser } from "@/auth/store";
-import { setSessionCookie } from "@/auth/session";
 import { rateLimit, rateLimitResponse } from "@/server/security";
 import { logger } from "@/lib/logger";
 import { captureException } from "@/lib/sentry-helper";
+
+// Auth.js handles login via signIn("credentials", ...).
+// This legacy endpoint remains for rate limiting and logging only.
+// It does NOT set a session cookie — Auth.js manages sessions.
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -19,18 +21,10 @@ export async function POST(request: Request) {
   const started = Date.now();
   try {
     const body = await request.json();
-    const input = loginSchema.parse(body);
-    await seedDemoUser();
-    const user = await validateLogin(input.email, input.password);
-    if (!user) {
-      logger.warn({ event: "login_failed", email: input.email, ip, duration: Date.now() - started });
-      return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 });
-    }
-    await setSessionCookie(user.id, user.email);
-    logger.info({ event: "login", userId: user.id, duration: Date.now() - started });
-    return NextResponse.json({
-      user: { id: user.id, email: user.email, displayName: user.displayName },
-    });
+    loginSchema.parse(body);
+    logger.info({ event: "login_attempt", ip, duration: Date.now() - started });
+    // Auth.js Credentials provider handles actual login
+    return NextResponse.json({ message: "Use Auth.js signIn for session" });
   } catch (error) {
     captureException(error, { path: "/api/auth/login" });
     const message = error instanceof Error ? error.message : "登录失败";

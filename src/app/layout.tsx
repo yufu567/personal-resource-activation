@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { I18nProvider } from "@/i18n/context";
+import { SessionProvider } from "@/components/session-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initSentry } from "@/lib/sentry-report";
@@ -17,11 +18,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="min-h-svh bg-background antialiased">
-        <ThemeProvider defaultTheme="system" storageKey="pra-theme">
-          <I18nProvider>
-            <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-          </I18nProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider defaultTheme="system" storageKey="pra-theme">
+            <I18nProvider>
+              <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );

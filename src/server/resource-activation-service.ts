@@ -71,9 +71,9 @@ export class ResourceActivationService {
       return this.getSnapshot(userId);
     }
 
-    // Check if user already has resources (e.g. after Docker restart)
+    // Check if user already has enough resources (from previous seeding)
     const existing = await this.store.listResources(userId);
-    if (existing.length > 0) {
+    if (existing.length >= 4) {
       this.demoSeededUsers.add(userId);
       return this.getSnapshot(userId);
     }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/auth/session";
 
+// Auth.js logout is client-side via signOut().
+// This endpoint remains as a simple redirect helper.
 export async function POST() {
-  await clearSessionCookie();
   return NextResponse.json({ message: "已登出" });
 }

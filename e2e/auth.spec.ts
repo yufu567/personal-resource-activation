@@ -17,9 +17,8 @@ test.describe("Authentication", () => {
     await expect(page.locator('a[href="/login"]')).toBeVisible();
   });
 
-  test("unauthenticated user sees demo data on resources page", async ({ page }) => {
+  test("unauthenticated user is redirected to login", async ({ page }) => {
     await page.goto("/resources");
-    await page.waitForSelector("text=资源总数");
-    await expect(page.locator("text=资源总数")).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
   });
 });
