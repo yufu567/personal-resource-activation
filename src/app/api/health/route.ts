@@ -32,7 +32,8 @@ export async function GET() {
         postgres: isConfigured(process.env.DATABASE_URL),
         redis: isConfigured(process.env.REDIS_URL),
         objectStorage: isConfigured(process.env.OBJECT_STORAGE_ENDPOINT),
-        aiProvider: safeLabel(process.env.AI_PROVIDER)
+        searxng: isConfigured(process.env.SEARXNG_ENDPOINT),
+        aiProvider: safeLabel(process.env.AI_PROVIDER),
       }
     },
     {

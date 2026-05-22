@@ -13,6 +13,8 @@
 
 import type { AIProvider } from "./types";
 import type { SpecContext } from "./spec-loader";
+import { ResearchEngine } from "./research-engine";
+import type { ResearchOutput as EngineResearchOutput, ResearchQuestion } from "./research-engine";
 import type { Resource, AnalysisRecord } from "@/core/types";
 
 // ── Pipeline Output Types ──
@@ -74,21 +76,7 @@ export interface PlanOutput {
   }>;
 }
 
-export interface ResearchOutput {
-  researchPlan: Array<{
-    question: string;
-    searchQuery: string;
-    rationale: string;
-  }>;
-  findings: Array<{
-    question: string;
-    summary: string;
-    sources: Array<{ title: string; url: string }>;
-    confidence: "high" | "medium" | "low";
-    gapsFilled: string[];
-  }>;
-  unresolvedGaps: string[];
-}
+export type { ResearchOutput } from "./research-engine";
 
 export interface ReflectOutput {
   valueDelta: number;
@@ -114,10 +102,17 @@ export interface ReflectOutput {
 // ── Pipeline ──
 
 export class Pipeline {
+  private researchEngine: ResearchEngine | null = null;
+
   constructor(
     private ai: AIProvider,
     private spec: SpecContext,
   ) {}
+
+  /** Inject a research engine for Step 4 */
+  setResearchEngine(engine: ResearchEngine) {
+    this.researchEngine = engine;
+  }
 
   /** Step 1: Understand the resource */
   async intake(resource: Resource): Promise<IntakeOutput> {
@@ -206,17 +201,28 @@ export class Pipeline {
     };
   }
 
-  /** Step 4: Research to fill gaps (requires search capability) */
-  async research(plan: PlanOutput): Promise<ResearchOutput> {
-    return {
-      researchPlan: plan.researchQuestions.map((q) => ({
-        question: q.query,
-        searchQuery: q.query,
-        rationale: q.purpose,
-      })),
-      findings: [],
-      unresolvedGaps: plan.researchQuestions.map((q) => q.query),
-    };
+  /** Step 4: Research to fill gaps */
+  async research(plan: PlanOutput): Promise<EngineResearchOutput> {
+    if (!this.researchEngine) {
+      return {
+        researchPlan: plan.researchQuestions.map((q) => ({
+          question: q.query,
+          searchQuery: q.query,
+          rationale: q.purpose,
+        })),
+        findings: [],
+        unresolvedGaps: plan.researchQuestions.map((q) => q.query),
+        webSearchCount: 0,
+      };
+    }
+
+    const questions: ResearchQuestion[] = plan.researchQuestions.map((q) => ({
+      query: q.query,
+      purpose: q.purpose,
+      expectedType: q.expectedType,
+    }));
+
+    return this.researchEngine.research(questions);
   }
 
   /** Step 5: Reflect on outcomes */

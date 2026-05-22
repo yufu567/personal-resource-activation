@@ -42,6 +42,18 @@ services:
       - redis-data:/data
     restart: unless-stopped
 
+  # SearXNG — self-hosted metasearch engine (aggregates Google, Bing, DDG, Baidu)
+  # Free, unlimited, excellent zh+en coverage
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    volumes:
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
