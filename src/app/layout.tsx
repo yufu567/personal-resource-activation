@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { I18nProvider } from "@/i18n/context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { initSentry } from "@/lib/sentry-report";
 import "./globals.css";
+
+// Initialize Sentry at server startup
+initSentry();
 
 export const metadata: Metadata = {
   title: "个人资源激活系统",

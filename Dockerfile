@@ -1,10 +1,14 @@
-# syntax=docker/dockerfile:1
-
 FROM node:22-alpine AS deps
 WORKDIR /app
 
+# Proxy configuration for npm (set via build args)
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+RUN if [ -n "$HTTP_PROXY" ]; then npm config set proxy "$HTTP_PROXY"; fi
+RUN if [ -n "$HTTPS_PROXY" ]; then npm config set https-proxy "$HTTPS_PROXY"; fi
+
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -29,7 +33,9 @@ ENV APP_VERSION=$APP_VERSION \
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
+RUN if [ -n "$HTTP_PROXY" ]; then npm config set proxy "$HTTP_PROXY"; fi
+RUN if [ -n "$HTTPS_PROXY" ]; then npm config set https-proxy "$HTTPS_PROXY"; fi
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/.next ./.next
 
