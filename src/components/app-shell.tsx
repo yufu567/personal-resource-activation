@@ -10,6 +10,7 @@ import {
   Inbox,
   LogIn,
   LogOut,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   Target,
   User,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -30,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useI18n } from "@/i18n/context";
@@ -48,6 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t, locale, setLocale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string; displayName: string } | null>(null);
 
   useEffect(() => {
@@ -176,10 +180,29 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Top bar */}
         <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
+          {/* Mobile hamburger */}
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden">
+                <Menu className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-60 p-0 [&>button]:hidden">
+              <MobileSidebar
+                pathname={pathname}
+                onClose={() => setMobileOpen(false)}
+                t={t}
+                currentUser={currentUser}
+                onLogout={logout}
+              />
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop collapse button */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 hidden md:flex"
             onClick={toggleCollapsed}
             title={collapsed ? "展开侧边栏" : "收起侧边栏"}
           >
@@ -264,6 +287,87 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="flex-1 overflow-auto p-6">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function MobileSidebar({
+  pathname,
+  onClose,
+  t,
+  currentUser,
+  onLogout,
+}: {
+  pathname: string;
+  onClose: () => void;
+  t: (key: string) => string;
+  currentUser: { displayName: string; email: string } | null;
+  onLogout: () => void;
+}) {
+  const navItems = [
+    { href: "/resources", icon: Inbox, label: t("nav.resources"), desc: t("nav.resourcesDesc") },
+    { href: "/goals", icon: Target, label: t("nav.goals"), desc: t("nav.goalsDesc") },
+    { href: "/reviews", icon: CheckCircle2, label: t("nav.reviews"), desc: t("nav.reviewsDesc") },
+    { href: "/connectors", icon: Plug, label: t("nav.connectors"), desc: t("nav.connectorsDesc") },
+    { href: "/settings", icon: Settings, label: t("nav.settings"), desc: t("nav.settingsDesc") },
+  ];
+
+  return (
+    <div className="flex h-full flex-col bg-sidebar">
+      <div className="flex items-center justify-between px-4 py-3">
+        <Link href="/resources" onClick={onClose} className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+          <span className="text-sm font-semibold text-sidebar-foreground">资源激活系统</span>
+        </Link>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <Separator />
+      <nav className="flex-1 space-y-1 p-3 overflow-auto">
+        {navItems.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                active
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent"
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="truncate">{item.label}</p>
+                <p className="truncate text-[11px] opacity-60">{item.desc}</p>
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+      <Separator />
+      <div className="p-3">
+        {currentUser ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium">{currentUser.displayName}</p>
+            <p className="text-[11px] text-muted-foreground">{currentUser.email}</p>
+            <Button variant="outline" size="sm" className="w-full" onClick={onLogout}>
+              <LogOut className="h-3.5 w-3.5 mr-1.5" /> 登出
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full" asChild>
+            <Link href="/login" onClick={onClose}>
+              <LogIn className="h-3.5 w-3.5 mr-1.5" /> 登录
+            </Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
