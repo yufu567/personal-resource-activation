@@ -1,5 +1,5 @@
 import { InMemoryResourceStore } from "@/core/resource-store";
-import type { Resource } from "@/core/types";
+import type { Connector, ConnectorSyncResult } from "@/core/types";
 
 export interface DriveConnectorConfig {
   selectedRootFolderId: string;
@@ -14,13 +14,24 @@ export interface DriveItem {
   content?: string;
 }
 
-export class DriveFolderConnector {
+export interface DriveFolderSyncInput {
+  items: DriveItem[];
+  cursor?: string;
+}
+
+export class DriveFolderConnector implements Connector<DriveFolderSyncInput> {
+  readonly source = "drive";
+  readonly capabilities = ["folder-sync"] as const;
+  lastCursor?: string;
+  nextCursor?: string;
+
   constructor(
     private readonly store: InMemoryResourceStore,
     private readonly config: DriveConnectorConfig
   ) {}
 
-  async sync(userId: string, items: DriveItem[]): Promise<Resource[]> {
+  async sync(userId: string, input: DriveFolderSyncInput | DriveItem[]): Promise<ConnectorSyncResult> {
+    const items = Array.isArray(input) ? input : input.items;
     const itemById = new Map(items.map((item) => [item.id, item]));
     const descendants = new Set<string>([this.config.selectedRootFolderId]);
     let changed = true;
@@ -35,7 +46,10 @@ export class DriveFolderConnector {
       }
     }
 
-    return items
+    this.lastCursor = Array.isArray(input) ? undefined : input.cursor;
+    this.nextCursor = undefined;
+
+    const resources = items
       .filter((item) => descendants.has(item.id))
       .filter((item) => item.mimeType !== "folder")
       .map((item) =>
@@ -48,6 +62,8 @@ export class DriveFolderConnector {
           raw: { driveItemId: item.id, mimeType: item.mimeType }
         })
       );
+
+    return { resources, lastCursor: this.lastCursor, nextCursor: this.nextCursor };
   }
 
   private collectionPathFor(item: DriveItem, itemById: Map<string, DriveItem>): string {

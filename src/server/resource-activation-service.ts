@@ -1,5 +1,6 @@
-import { createMockAIProvider } from "@/ai/mock-provider";
+import { createAIProvider } from "@/ai/factory";
 import { ActivationPlanner, type CreateGoalFromResourcesInput } from "@/core/activation-planner";
+import { PostgresResourceStore } from "@/core/postgres-store";
 import { ResourceAnalyzer } from "@/core/resource-analyzer";
 import { InMemoryResourceStore } from "@/core/resource-store";
 import { ReviewEngine, type RecordReviewInput } from "@/core/review-engine";
@@ -9,8 +10,8 @@ export interface ResourceActivationSnapshot {
   userId: string;
   resources: Resource[];
   analyses: AnalysisRecord[];
-  goals: ReturnType<InMemoryResourceStore["listGoals"]>;
-  reviews: ReturnType<InMemoryResourceStore["listReviews"]>;
+  goals: Awaited<ReturnType<InMemoryResourceStore["listGoals"]>>;
+  reviews: Awaited<ReturnType<InMemoryResourceStore["listReviews"]>>;
   metrics: {
     totalResources: number;
     analyzedResources: number;
@@ -20,17 +21,27 @@ export interface ResourceActivationSnapshot {
   };
 }
 
+type Store = InMemoryResourceStore | PostgresResourceStore;
+
+function createStore(): Store {
+  const storeBackend = process.env.STORE ?? "memory";
+  if (storeBackend === "postgres") {
+    return new PostgresResourceStore();
+  }
+  return new InMemoryResourceStore();
+}
+
 export class ResourceActivationService {
   private readonly demoSeededUsers = new Set<string>();
-  private readonly store = new InMemoryResourceStore();
-  private readonly analyzer = new ResourceAnalyzer(createMockAIProvider(), this.store);
-  private readonly planner = new ActivationPlanner(createMockAIProvider(), this.store);
+  private readonly store: Store = createStore();
+  private readonly analyzer = new ResourceAnalyzer(createAIProvider(), this.store);
+  private readonly planner = new ActivationPlanner(createAIProvider(), this.store);
   private readonly reviewer = new ReviewEngine(this.store);
 
   async addResource(input: CreateResourceInput) {
-    const resource = this.store.createResource(input);
+    const resource = await this.store.createResource(input);
     const analysis = await this.analyzer.analyze(input.userId, resource.id);
-    return { resource: this.store.requireResource(input.userId, resource.id), analysis };
+    return { resource: await this.store.requireResource(input.userId, resource.id), analysis };
   }
 
   async createGoalFromResources(input: CreateGoalFromResourcesInput) {
@@ -48,57 +59,60 @@ export class ResourceActivationService {
       source: "github",
       title: "Agent workflow framework",
       url: "https://github.com/example/agent-workflow",
-      content: "A toolkit for AI agent workflow orchestration, checkpoints, and memory-backed automation."
+      content: "A toolkit for AI agent workflow orchestration, checkpoints, and memory-backed automation.",
     });
     const xPost = await this.addResource({
       userId,
       source: "x",
       title: "Thread about personal automation",
       url: "https://x.com/example/status/1",
-      content: "A practical thread on turning saved links into product ideas and small automation workflows."
+      content: "A practical thread on turning saved links into product ideas and small automation workflows.",
     });
     const link = await this.addResource({
       userId,
       source: "link",
       title: "Resource activation product notes",
       url: "https://example.com/resource-activation",
-      content: "Product design notes for classifying saved resources and turning them into action plans."
+      content: "Product design notes for classifying saved resources and turning them into action plans.",
     });
     await this.addResource({
       userId,
       source: "drive",
       title: "activation-research.md",
       content: "Research notes about resource activation, review loops, and user-owned automation.",
-      collectionPath: "AI Resource Inbox"
+      collectionPath: "AI Resource Inbox",
     });
 
     const goal = await this.createGoalFromResources({
       userId,
       resourceIds: [github.resource.id, xPost.resource.id, link.resource.id],
-      intent: "把囤积的资源转成站内可执行的个人激活系统"
+      intent: "把囤积的资源转成站内可执行的个人激活系统",
     });
 
-    this.recordReview({
+    await this.recordReview({
       userId,
       resourceId: github.resource.id,
       goalId: goal.id,
       outcome: "produced-output",
       actualValue: "high",
-      reflection: "This resource became the first internal activation workflow."
+      reflection: "This resource became the first internal activation workflow.",
     });
 
     return this.getSnapshot(userId);
   }
 
-  recordReview(input: RecordReviewInput) {
+  async recordReview(input: RecordReviewInput) {
     return this.reviewer.recordReview(input);
   }
 
-  getSnapshot(userId: string): ResourceActivationSnapshot {
-    const resources = this.store.listResources(userId);
-    const analyses = this.store.listAnalyses(userId);
-    const goals = this.store.listGoals(userId);
-    const reviews = this.store.listReviews(userId);
+  async getSnapshot(userId: string): Promise<ResourceActivationSnapshot> {
+    const [resources, analyses, goals, reviews] = await Promise.all([
+      this.store.listResources(userId),
+      this.store.listAnalyses(userId),
+      this.store.listGoals(userId),
+      this.store.listReviews(userId),
+    ]);
+
     const averageValueScore =
       analyses.length === 0
         ? 0
@@ -115,8 +129,8 @@ export class ResourceActivationService {
         analyzedResources: analyses.length,
         activeGoals: goals.filter((goal) => goal.status === "active").length,
         reviewedResources: reviews.length,
-        averageValueScore
-      }
+        averageValueScore,
+      },
     };
   }
 }
