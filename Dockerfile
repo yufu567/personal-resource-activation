@@ -4,7 +4,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -29,7 +29,7 @@ ENV APP_VERSION=$APP_VERSION \
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 
 COPY --from=builder /app/.next ./.next
 
