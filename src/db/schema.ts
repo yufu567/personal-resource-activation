@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { doublePrecision, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -60,7 +60,7 @@ export const analysisRecords = pgTable("analysis_records", {
   activationOpportunities: jsonb("activation_opportunities").notNull().default([]),
   gaps: jsonb("gaps").$type<string[]>().notNull().default([]),
   reasoning: text("reasoning").notNull(),
-  confidence: integer("confidence").notNull().default(0),
+  confidence: doublePrecision("confidence").notNull().default(0),
   nextBestAction: jsonb("next_best_action"),
   actualValue: text("actual_value"),
   reviewSuggestions: jsonb("review_suggestions").notNull().default([]),
